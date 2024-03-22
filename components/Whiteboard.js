@@ -1,13 +1,51 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useReducer } from 'react';
 import { Stage, Layer, Line, Text } from 'react-konva';
 
+const initial_state = {
+  history: {
+    curHistory: 0,
+    record:[],
+  },
+  lines: [],
+}
+
+const actionTypes = {
+  setHistory: "setHistory",
+  setLines: "setLines"
+}
+
+function reducer(state, action) {
+  switch (action.type) {
+    case actionTypes.setHistory:
+      var payload = action.payload;
+      var newHistory = {
+        curHistory: payload.curHistory,
+        record: payload.record
+      };
+
+      return {
+        ...state,
+        history: newHistory,
+      }
+    case actionTypes.setLines:
+      var payload = action.payload;
+      var newLines = payload.newLines;
+
+      return {
+        ...state,
+        lines: newLines,
+      }
+    default:
+      alert("No matching action");
+  }
+}
+
 const Whiteboard = () => {
+  const [state, dispatch] = useReducer(reducer, initial_state);
   const stageRef = useRef(null);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [tool, setTool] = useState('pen');
-  const [lines, setLines] = useState([]);
-  const [history, setHistory] = useState({curHistory:0 , record:[]});
   const isDrawing = useRef(false);
 
   useEffect(() => {
@@ -18,7 +56,7 @@ const Whiteboard = () => {
     const handleMouseDown = (e) => {
       isDrawing.current = true;
       const pos = stage.getPointerPosition();
-      setLines([...lines, { tool, points: [pos.x, pos.y] }]);
+      dispatch({ type: actionTypes.setLines, payload: { newLines: [...state.lines, { tool, points: [pos.x, pos.y] }] } })
     };
 
     const handleMouseMove = (e) => {
@@ -26,19 +64,16 @@ const Whiteboard = () => {
         return;
       }
       const point = stage.getPointerPosition();
-      let lastLine = lines[lines.length - 1];
+      let lastLine = state.lines[state.lines.length - 1];
       lastLine.points = lastLine.points.concat([point.x, point.y]);
       // Update lines using functional state update to ensure latest state is used
-      setLines(prevLines => {
-        const newLines = prevLines.slice(0, -1);
-        return [...newLines, lastLine];
-      });
+      dispatch({ type: actionTypes.setLines, payload: { newLines: [...state.lines.slice(0, -1), lastLine] } })
     };
 
     const handleMouseUp = () => {
       isDrawing.current = false;
-      const newHistoryRecord = [...history.record.slice(0, history.curHistory), lines];
-      setHistory({curHistory: newHistoryRecord.length, record: newHistoryRecord});
+      const newHistoryRecord = [...state.history.record.slice(0, state.history.curHistory), state.lines];
+      dispatch({ type: actionTypes.setHistory, payload: { curHistory: newHistoryRecord.length, record: newHistoryRecord } });
     };
 
     // Adding event listeners
@@ -52,28 +87,26 @@ const Whiteboard = () => {
       stage.off('mousemove touchmove', handleMouseMove);
       stage.off('mouseup touchend', handleMouseUp);
     };
-  }, [lines, tool, history]); // Dependency array includes lines and tool to ensure useEffect runs when they change
+  }, [state.lines, tool, state.history]); // Dependency array includes lines and tool to ensure useEffect runs when they change
   
   const handleUndo = () => {
-    if (history.record.length > 0) {
-      console.log("undo")
-      const newlines = history.record[history.curHistory - 2];
-      if(newlines !== undefined) {
-        setHistory({curHistory: history.curHistory - 1, record: history.record})
-        setLines(newlines);
+    if (state.history.record.length > 0) {
+      const newLines = state.history.record[state.history.curHistory - 2];
+      if(newLines !== undefined) {
+        dispatch({type: actionTypes.setHistory, payload: {curHistory: state.history.curHistory - 1, record: state.history.record}});
+        dispatch({ type: actionTypes.setLines, payload: { newLines: newLines } })
       } else {
-        setHistory({curHistory: 0, record: history.record})
-        setLines([])
+        dispatch({type: actionTypes.setHistory, payload: {curHistory: 0, record: state.history.record}});
+        dispatch({ type: actionTypes.setLines, payload: { newLines: [] } })
       }
     }
   };
 
   const handleRedo = () => {
-    if (history.record.length > 0 && history.curHistory < history.record.length) {
-      console.log("redo")
-      const newLines = history.record[history.curHistory];
-      setHistory({curHistory: history.curHistory + 1, record: history.record})
-      setLines(newLines);
+    if (state.history.record.length > 0 && state.history.curHistory < state.history.record.length) {
+      const newLines = state.history.record[state.history.curHistory];
+      dispatch({ type: actionTypes.setHistory, payload: {curHistory: state.history.curHistory + 1, record: state.history.record } });
+      dispatch({ type: actionTypes.setLines, payload: { newLines: newLines } })
     }
   };
 
@@ -90,7 +123,7 @@ const Whiteboard = () => {
       </select>
       <button onClick={handleUndo}>undo</button>
       <button onClick={handleRedo}>redo</button>
-      <span>{ history.curHistory }</span>
+      <span>{ state.history.curHistory }</span>
       <Stage
         ref={stageRef}
         width={width}
@@ -99,7 +132,7 @@ const Whiteboard = () => {
       >
         <Layer>
           <Text text="Just start drawing" x={5} y={30} />
-          {lines.map((line, i) => (
+          {state.lines.map((line, i) => (
             <Line
               key={i}
               points={line.points}

@@ -43,6 +43,7 @@ function reducer(state, action) {
 const Whiteboard = () => {
   const [state, dispatch] = useReducer(reducer, initial_state);
   const stageRef = useRef(null);
+  const [stagePos, setStagePos] = React.useState({ x: 0, y: 0 });
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
   const [tool, setTool] = useState('pen');
@@ -54,9 +55,15 @@ const Whiteboard = () => {
     setHeight(window.innerHeight)
     
     const handleMouseDown = (e) => {
+      if (tool != "pen" && tool != "eraser") return;
+
       isDrawing.current = true;
       const pos = stage.getPointerPosition();
-      dispatch({ type: actionTypes.setLines, payload: { newLines: [...state.lines, { tool, points: [pos.x, pos.y] }] } })
+      const adjustedPoint = {
+        x: pos.x - stagePos.x,
+        y: pos.y - stagePos.y,
+      };
+      dispatch({ type: actionTypes.setLines, payload: { newLines: [...state.lines, { tool, points: [adjustedPoint.x, adjustedPoint.y] }] } })
     };
 
     const handleMouseMove = (e) => {
@@ -64,13 +71,21 @@ const Whiteboard = () => {
         return;
       }
       const point = stage.getPointerPosition();
+      const stagePos = stage.position(); // Get current Stage position
+      const adjustedPoint = {
+        x: point.x - stagePos.x,
+        y: point.y - stagePos.y,
+      };
       let lastLine = state.lines[state.lines.length - 1];
-      lastLine.points = lastLine.points.concat([point.x, point.y]);
+      lastLine.points = lastLine.points.concat([adjustedPoint.x, adjustedPoint.y]);
       // Update lines using functional state update to ensure latest state is used
       dispatch({ type: actionTypes.setLines, payload: { newLines: [...state.lines.slice(0, -1), lastLine] } })
     };
 
     const handleMouseUp = () => {
+      if (!isDrawing.current) {
+        return;
+      }
       isDrawing.current = false;
       const newHistoryRecord = [...state.history.record.slice(0, state.history.curHistory), state.lines];
       dispatch({ type: actionTypes.setHistory, payload: { curHistory: newHistoryRecord.length, record: newHistoryRecord } });
@@ -120,15 +135,22 @@ const Whiteboard = () => {
       >
         <option value="pen">Pen</option>
         <option value="eraser">Eraser</option>
+        <option value="hand">Hand</option>
       </select>
       <button onClick={handleUndo}>undo</button>
       <button onClick={handleRedo}>redo</button>
       <span>{ state.history.curHistory }</span>
       <Stage
         ref={stageRef}
+        x={stagePos.x}
+        y={stagePos.y}
         width={width}
         height={height}
         style={{ border: '1px solid black'}}
+        draggable={tool=="hand"}
+        onDragEnd={e => {
+          setStagePos(e.currentTarget.position());
+        }}
       >
         <Layer>
           <Text text="Just start drawing" x={5} y={30} />

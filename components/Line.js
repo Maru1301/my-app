@@ -45,18 +45,24 @@ const ResizableLine = ({ lineProps, isSelected, onSelect, onChange }) => {
                         // but in the store we have only width and height
                         // to match the data better we will reset scale on transform end
                         const node = lineRef.current;
-                        console.log(node)
-                        const scaleX = node.scaleX();
-                        const scaleY = node.scaleY();
-            
                         // we will reset it back
-                        node.scaleX(1);
-                        node.scaleY(1);
+                        //node.scaleX(1);
+                        //node.scaleY(1);
                         onChange({
                         ...lineProps,
-                        //x: node.x(),
-                        //y: node.y(),
-                        strokeWidth: node.attrs.strokeWidth * scaleX,
+                        x: node.x(),
+                        y: node.y(),
+                        //strokeWidth: node.strokeWidth() * Math.min(scaleX, scaleY),
+                        scaleX: node.scaleX(),
+                        scaleY: node.scaleY(),
+                        // points: node.points().map((point, i) => {
+                        //     console.log(point);
+                        //     if (i % 2 == 0) {
+                        //         return point * node.scaleX();
+                        //     } else {
+                        //         return point * node.scaleY();
+                        //     }
+                        // })
                         // set minimal value
                         });
                     }}

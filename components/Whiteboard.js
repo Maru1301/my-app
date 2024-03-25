@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Line, Rect, Ellipse } from 'react-konva';
-import  Rectangle  from './Rectangle.js';
+import ResizableLine from './Line.js';
+import Rectangle  from './Rectangle.js';
 import URLImage from './Image.js';
 import Text from './Text.js';
 import ResizableCircle from './Circle.js'
@@ -65,6 +66,7 @@ const Whiteboard = () => {
   const [circle, setCircle] = useState(circleInitialState);
 
   const [texts, setTexts] = useState([]);
+  const [textId, setTextId] = useState(0);
   const [selectedTextIndex, setSelectedTextIndex] = useState();
 
   const checkDeselect = (e) => {
@@ -89,14 +91,15 @@ const Whiteboard = () => {
       switch (tool) {
         case 'text':
           const newText = {
-            id: texts.length,
+            id: textId,
             content: 'Start typing',
             x: adjustedPoint.x,
             y: adjustedPoint.y,
             fontSize: 20,
           };
           setTexts([...texts, newText]);
-          setSelectedTextIndex(texts.length);
+          setSelectedTextIndex(textId);
+          setTextId(textId+1);
           selectShape(null);
           return;
         case 'cursor':
@@ -105,14 +108,14 @@ const Whiteboard = () => {
         case 'pen':
         case 'eraser':
           isDrawing.current = true;
-          var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], key: historyPointer }];
+          var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], id: historyPointer }];
           setItems(newItems);
           setItemsHistory(newItems);
           setHistoryPointer(historyPointer+1);
           return;
         case 'line':
           isDrawing.current = true;
-          var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], key: historyPointer }];
+          var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], id: historyPointer }];
           setItems(newItems);
           setItemsHistory(newItems);
           setHistoryPointer(historyPointer+1);
@@ -192,17 +195,23 @@ const Whiteboard = () => {
     const handleKeyDown = (e) => {
       if (tool != 'cursor' && tool != 'text') return;
       const key = e.key;
-      if(texts[selectedTextIndex] == undefined) return;
+      if(texts.find((text) => {return text.id == selectedTextIndex}) == undefined) return;
       const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Enter', ...Array.from('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ,.?!')];
 
       // Check if the pressed key is allowed for text editing
       if (allowedKeys.includes(key)) {
-        const updatedTexts = [...texts];
+        var updatedTexts = [...texts];
         // Handle special keys with specific behavior
         if (key === 'Backspace') {
           updatedTexts[selectedTextIndex].content = updatedTexts[selectedTextIndex].content.slice(0, -1); // Backspace removes last character
         } else if (key === 'Delete') {
-          // ... Implement Delete behavior if needed
+          if (updatedTexts.length == 1) {
+            updatedTexts = [];
+          } else {
+            updatedTexts = updatedTexts.filter((text) => {
+              return text.id != selectedTextIndex;
+            })
+          }
         } else if (key === 'Enter') {
           setIsTyping(false);
         } else {
@@ -226,7 +235,7 @@ const Whiteboard = () => {
       stage.off('mouseup touchend', handleMouseUp);
       container.removeEventListener('keydown', handleKeyDown);
     };
-  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, itemsHistory, circle]); // Dependency array includes lines and tool to ensure useEffect runs when they change
+  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, itemsHistory, circle, textId]); // Dependency array includes lines and tool to ensure useEffect runs when they change
   
   const handleUndo = () => {
     if (historyPointer > 0) {
@@ -291,17 +300,18 @@ const Whiteboard = () => {
       case 'eraser':
       case 'line':
         return (
-          <Line
-            key={object.key}
-            points={object.points}
-            stroke="black"
-            strokeWidth={5}
-            tension={0.5}
-            lineCap="round"
-            lineJoin="round"
-            globalCompositeOperation={
-              object.tool === 'eraser' ? 'destination-out' : 'source-over'
-            }
+          <ResizableLine
+            lineProps={object}
+            isSelected={tool=="cursor" && object.id === selectedId}
+            onSelect={() => {
+              selectShape(object.id);
+            }}
+            onChange={(newAttrs) => {
+              const newItems = items.slice();
+              newItems[object.id] = newAttrs;
+              setItems(newItems);
+              setItemsHistory(newItems);
+            }}
             draggable={tool=='cursor'}
           />
         );

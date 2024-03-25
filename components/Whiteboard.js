@@ -1,27 +1,8 @@
-import React, { useState, useRef, useEffect, useReducer } from 'react';
-import { Stage, Layer, Line, Text, Image, Transformer } from 'react-konva';
+import React, { useState, useRef, useEffect } from 'react';
+import { Stage, Layer, Line, Rect } from 'react-konva';
 import  Rectangle  from './Rectangle.js';
 import URLImage from './Image.js';
-
-const initialRectangles = [
-  {
-    x: 10,
-    y: 10,
-    width: 100,
-    height: 100,
-    stroke: 'black',
-    strokeWidth: 5,
-    id: 'rect1',
-  },
-  {
-    x: 150,
-    y: 150,
-    width: 100,
-    height: 100,
-    fill: 'green',
-    id: 'rect2',
-  },
-];
+import Text from './Text.js';
 
 const ToolButton = ({ tool, value, onClick, activeColor = 'red', inactiveColor = 'black' }) => {
   return (
@@ -38,10 +19,23 @@ const ToolButton = ({ tool, value, onClick, activeColor = 'red', inactiveColor =
   );
 };
 
-const tools = ['pen', 'eraser', 'text', 'cursor', 'hand'];
+const tools = ['pen', /*'eraser'*/, 'rectangle', 'text', 'cursor', 'hand'];
+
+const rectInitialState={
+  id: 'rect',
+  tool: 'rectangle',
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+  stroke: 'black',
+  strokeWidth: 5,
+  visible: false,
+};
 
 const Whiteboard = () => {
   const stageRef = useRef(null);
+  const [scale, setScale] = useState(1);
   const [items, setItems] = useState([]);
   const [itemsHistory, setItemsHistory] = useState([]);
   const [historyPointer, setHistoryPointer] = useState(0);
@@ -52,53 +46,65 @@ const Whiteboard = () => {
   const isDrawing = useRef(false);
   const dragUrl = useRef();
   const [image, setImage] = useState();
-  const textAreaRef = useRef(null);
 
-  const [rectangles, setRectangles] = React.useState(initialRectangles);
   const [selectedId, selectShape] = React.useState(null);
+  const [rect, setRect] = useState(rectInitialState);
 
   const [texts, setTexts] = useState([]);
-  const [text, setText] = useState();
+  const [selectedTextIndex, setSelectedTextIndex] = useState();
 
   const checkDeselect = (e) => {
     // deselect when clicked on empty area
     const clickedOnEmpty = e.target === e.target.getStage();
     if (clickedOnEmpty) {
       selectShape(null);
+      setSelectedTextIndex(null);
     }
   };
 
   useEffect(() => {
     const stage = stageRef.current.getStage(); // Get the Konva stage using the ref
-    setWidth(window.innerWidth)
-    setHeight(window.innerHeight)
+    const container = stage.attrs.container;
+    container.tabIndex = 1;
+    setWidth(window.innerWidth);
+    setHeight(window.innerHeight);
     
     const handleMouseDown = (e) => {
-      if (tool == 'text') {
-        const pos = stage.getPointerPosition();
-        const adjustedPoint = getAdjustedPoint(pos);
-        const newText = {
-          id: 1,
-          content: 'Some text here',
-          x: adjustedPoint.x,
-          y: adjustedPoint.y,
-          fontSize: 20,
-        };
-        setTexts([...texts, newText]);
-      }
-      if (tool == "cursor") {
-        checkDeselect(e);
-        return;
-      }
-      if (tool != "pen" && tool != "eraser") return;
-
-      isDrawing.current = true;
       const pos = stage.getPointerPosition();
       const adjustedPoint = getAdjustedPoint(pos);
-      var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], key: historyPointer }];
-      setItems(newItems);
-      setItemsHistory(newItems);
-      setHistoryPointer(historyPointer+1);
+      switch (tool) {
+        case 'text':
+          const newText = {
+            id: texts.length,
+            content: 'Start typing',
+            x: adjustedPoint.x,
+            y: adjustedPoint.y,
+            fontSize: 20,
+          };
+          setTexts([...texts, newText]);
+          setSelectedTextIndex(texts.length);
+          selectShape(null);
+          return;
+        case 'cursor':
+          checkDeselect(e);
+          return;
+        case 'pen':
+        case 'eraser':
+          isDrawing.current = true;
+          var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], key: historyPointer }];
+          setItems(newItems);
+          setItemsHistory(newItems);
+          setHistoryPointer(historyPointer+1);
+          return;
+        case 'rectangle':
+          isDrawing.current = true;
+          const newRect = JSON.parse(JSON.stringify(rect));
+          newRect.x = adjustedPoint.x;
+          newRect.y = adjustedPoint.y;
+          newRect.visible = true;
+          setRect(newRect);
+          return;
+      }
     };
 
     const handleMouseMove = (e) => {
@@ -107,28 +113,73 @@ const Whiteboard = () => {
       }
       const pos = stage.getPointerPosition();
       const adjustedPoint = getAdjustedPoint(pos);
-      let lastLine = items[items.length - 1];
-      lastLine.points = lastLine.points.concat([adjustedPoint.x, adjustedPoint.y]);
-      // Update lines using functional state update to ensure latest state is used
-      setItems([...items.slice(0, -1), lastLine]);
+      if(tool == 'pen' || tool == 'eraser') {
+        let lastLine = items[items.length - 1];
+        lastLine.points = lastLine.points.concat([adjustedPoint.x, adjustedPoint.y]);
+        // Update lines using functional state update to ensure latest state is used
+        setItems([...items.slice(0, -1), lastLine]);
+      } else if (tool == 'rectangle') {
+        const lastRect = JSON.parse(JSON.stringify(rect));
+        lastRect.width = adjustedPoint.x - lastRect.x;
+        lastRect.height = adjustedPoint.y - lastRect.y;
+        lastRect.visible = true;
+        setRect(lastRect);
+      }
     };
 
     const handleMouseUp = () => {
       isDrawing.current = false;
+      if (tool == 'rectangle') {
+        const newRect = JSON.parse(JSON.stringify(rect));
+        newRect.id = historyPointer;
+        var newItems = [...itemsHistory, newRect];
+        console.log(newItems);
+        setItems(newItems);
+        setItemsHistory(newItems);
+        setHistoryPointer(historyPointer+1);
+        //resetRect
+        setRect(rectInitialState);
+      }
     };
+
+    const handleKeyDown = (e) => {
+      if (tool != 'cursor' && tool != 'text') return;
+      const key = e.key;
+      if(texts[selectedTextIndex] == undefined) return;
+      const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Enter', ...Array.from('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ,.?!')];
+
+      // Check if the pressed key is allowed for text editing
+      if (allowedKeys.includes(key)) {
+        const updatedTexts = [...texts];
+        // Handle special keys with specific behavior
+        if (key === 'Backspace') {
+          updatedTexts[selectedTextIndex].content = updatedTexts[selectedTextIndex].content.slice(0, -1); // Backspace removes last character
+        } else if (key === 'Delete') {
+          // ... Implement Delete behavior if needed
+        } else if (key === 'Enter') {
+          setIsTyping(false);
+        } else {
+          // Append regular characters to text
+          updatedTexts[selectedTextIndex].content = updatedTexts[selectedTextIndex].content + key;
+        }
+        setTexts(updatedTexts);
+      }
+    }
 
     // Adding event listeners
     stage.on('mousedown touchstart', handleMouseDown);
     stage.on('mousemove touchmove', handleMouseMove);
     stage.on('mouseup touchend', handleMouseUp);
+    container.addEventListener('keydown', handleKeyDown);
 
     // Cleanup function to remove event listeners
     return () => {
       stage.off('mousedown touchstart', handleMouseDown);
       stage.off('mousemove touchmove', handleMouseMove);
       stage.off('mouseup touchend', handleMouseUp);
+      container.removeEventListener('keydown', handleKeyDown);
     };
-  }, [tool, items, historyPointer, texts]); // Dependency array includes lines and tool to ensure useEffect runs when they change
+  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale]); // Dependency array includes lines and tool to ensure useEffect runs when they change
   
   const handleUndo = () => {
     if (historyPointer > 0) {
@@ -167,8 +218,8 @@ const Whiteboard = () => {
 
   const getAdjustedPoint = (pos) => {
     const adjustedPoint = {
-      x: pos.x - stagePos.x,
-      y: pos.y - stagePos.y,
+      x: (pos.x - stagePos.x) / scale,
+      y: (pos.y - stagePos.y) / scale,
     };
     return adjustedPoint;
   }
@@ -187,6 +238,7 @@ const Whiteboard = () => {
   };
 
   const render = (object) => {
+    //console.log(object.tool);
     switch (object.tool) {
       case 'pen':
       case 'eraser':
@@ -202,7 +254,7 @@ const Whiteboard = () => {
             globalCompositeOperation={
               object.tool === 'eraser' ? 'destination-out' : 'source-over'
             }
-            draggable
+            draggable={tool=='cursor'}
           />
         );
       case 'image':
@@ -211,13 +263,31 @@ const Whiteboard = () => {
             imageProps={object}
             isSelected={tool=="cursor" && object.id === selectedId}
             onSelect={() => {
-              console.log(object.id)
               selectShape(object.id);
             }}
             onChange={(newAttrs) => {
               const newItems = items.slice();
               newItems[object.id] = newAttrs;
               setItems(newItems);
+              setItemsHistory(newItems);
+            }}
+            draggable={tool=="cursor"}
+          />
+        );
+      case 'rectangle':
+        return (
+          <Rectangle
+            key={object.id}
+            shapeProps={object}
+            isSelected={object.id === selectedId}
+            onSelect={() => {
+              selectShape(object.id);
+            }}
+            onChange={(newAttrs) => {
+              const newItems = items.slice();
+              newItems[object.id] = newAttrs;
+              setItems(newItems);
+              setItemsHistory(newItems);
             }}
             draggable={tool=="cursor"}
           />
@@ -226,18 +296,6 @@ const Whiteboard = () => {
         return <></>
     }
   }
-
-  const handleDoubleClick = (e) => {
-    console.log(e.target.attrs)
-    textAreaRef.value = e.target.attrs.text;
-    // textAreaRef.current.style.top = `${e.evt.y + stagePos.y}px`;
-    // textAreaRef.current.style.left = `${e.evt.x + stagePos.x}px`;
-    textAreaRef.current.focus(); // Focus on text input
-  };
-
-  const handleChange = (e) => {
-    
-  };
 
   return (
     <div 
@@ -251,8 +309,10 @@ const Whiteboard = () => {
             value={tooltext}
             label={tooltext}
             onClick={() => {
-              selectShape(null);
-              setTool(tooltext)}
+                selectShape(null);
+                setTool(tooltext)
+                setSelectedTextIndex(null);
+              }
             }
           ></ToolButton>
         )
@@ -263,6 +323,17 @@ const Whiteboard = () => {
       <span>items: { items.length } </span>
       <span>historyPointer: { historyPointer }</span>
       <br />
+      <button onClick={() => {
+        if (Math.floor(scale*10) > 1){
+          setScale(scale-0.1)
+        }
+      }}>-10%</button>
+      <span>{Math.floor(scale * 100)}%</span>
+      <button onClick={() => {
+        if (Math.floor(scale*10) < 20) {
+          setScale(scale+0.1)
+        }
+      }}>+10%</button>
       <img
         width={100}
         height={100}
@@ -279,6 +350,7 @@ const Whiteboard = () => {
         y={stagePos.y}
         width={width}
         height={height}
+        scale={{x: scale, y: scale}}
         style={{ border: '1px solid black'}}
         draggable={tool=="hand"}
         onDragEnd={e => {
@@ -289,38 +361,43 @@ const Whiteboard = () => {
           {texts.map((text) => {
             return (
               <Text
-                text={text.content}
-                x={text.x}
-                y={text.y}
-                fontSize={text.fontSize}
-                onDblClick={ handleDoubleClick }
+                textProps={text}
+                isSelected={text.id === selectedTextIndex}
+                onSelect={() => {
+                  if (tool != 'cursor') return;
+                  setSelectedTextIndex(text.id);
+                  selectShape(null);
+                }}
+                onChange={(newAttrs) => {
+                  const newTexts = texts.slice();
+                  newTexts[selectedTextIndex] = newAttrs;
+                  setTexts(newTexts);
+                }}
+                onDragStart={() => {
+                    if (tool != 'cursor') return;
+                    setSelectedTextIndex(text.id);
+                    selectShape(null);
+                  }
+                }
+                draggable={tool=='cursor'}
               />
             )
           })}
           <textarea></textarea>
-          {items.slice(0, historyPointer).map((line) => {
-            return  render(line);
+          {items.slice(0, historyPointer).map((item) => {
+            return  render(item);
           })}
-          {rectangles.map((rect, i) => {
-            return (
-              <Rectangle
-                key={i}
-                shapeProps={rect}
-                isSelected={rect.id === selectedId}
-                onSelect={() => {
-                  selectShape(rect.id);
-                }}
-                onChange={(newAttrs) => {
-                  const rects = rectangles.slice();
-                  rects[i] = newAttrs;
-                  setRectangles(rects);
-                }}
-              />
-            );
-          })}
+          <Rect
+            x={rect.x}
+            y={rect.y}
+            width={rect.width}
+            height={rect.height}
+            stroke={'black'}
+            strokeWidth={5}
+            visible={rect.visible} 
+          />
         </Layer>
       </Stage>
-      <textarea ref={textAreaRef} value={textAreaRef.value} onChange={handleChange} style={{ /*display: 'none'*/ }} />
     </div>
   );
 };

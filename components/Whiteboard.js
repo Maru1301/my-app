@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Line, Rect } from 'react-konva';
+import { Stage, Layer, Line, Rect, Ellipse } from 'react-konva';
 import  Rectangle  from './Rectangle.js';
 import URLImage from './Image.js';
 import Text from './Text.js';
+import ResizableCircle from './Circle.js'
 
 const ToolButton = ({ key, tool, value, onClick, activeColor = 'red', inactiveColor = 'black' }) => {
   return (
@@ -20,7 +21,7 @@ const ToolButton = ({ key, tool, value, onClick, activeColor = 'red', inactiveCo
   );
 };
 
-const tools = ['pen', /*'eraser'*/, 'rectangle', 'text', 'cursor', 'hand'];
+const tools = ['pen', /*'eraser'*/, 'line', 'rectangle', 'circle', 'text', 'cursor', 'hand'];
 
 const rectInitialState={
   id: 'rect',
@@ -33,6 +34,17 @@ const rectInitialState={
   strokeWidth: 5,
   visible: false,
 };
+
+const circleInitialState={
+  id: 'circle',
+  tool: 'circle',
+  x: 0,
+  y: 0,
+  radius: { x: 0, y: 0 },
+  stroke: 'black',
+  strokeWidth: 5,
+  visible: false,
+}
 
 const Whiteboard = () => {
   const stageRef = useRef(null);
@@ -50,6 +62,7 @@ const Whiteboard = () => {
 
   const [selectedId, selectShape] = React.useState(null);
   const [rect, setRect] = useState(rectInitialState);
+  const [circle, setCircle] = useState(circleInitialState);
 
   const [texts, setTexts] = useState([]);
   const [selectedTextIndex, setSelectedTextIndex] = useState();
@@ -97,6 +110,13 @@ const Whiteboard = () => {
           setItemsHistory(newItems);
           setHistoryPointer(historyPointer+1);
           return;
+        case 'line':
+          isDrawing.current = true;
+          var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], key: historyPointer }];
+          setItems(newItems);
+          setItemsHistory(newItems);
+          setHistoryPointer(historyPointer+1);
+          return;
         case 'rectangle':
           isDrawing.current = true;
           const newRect = JSON.parse(JSON.stringify(rect));
@@ -104,6 +124,14 @@ const Whiteboard = () => {
           newRect.y = adjustedPoint.y;
           newRect.visible = true;
           setRect(newRect);
+          return;
+        case 'circle':
+          isDrawing.current = true;
+          const newCircle = JSON.parse(JSON.stringify(circle));
+          newCircle.x = adjustedPoint.x;
+          newCircle.y = adjustedPoint.y;
+          newCircle.visible = true;
+          setCircle(newCircle);
           return;
       }
     };
@@ -119,12 +147,22 @@ const Whiteboard = () => {
         lastLine.points = lastLine.points.concat([adjustedPoint.x, adjustedPoint.y]);
         // Update lines using functional state update to ensure latest state is used
         setItems([...items.slice(0, -1), lastLine]);
+      } else if(tool == 'line') {
+        let lastLine = items[items.length - 1];
+        lastLine.points = [...lastLine.points.slice(0,2), adjustedPoint.x, adjustedPoint.y];
+        // Update lines using functional state update to ensure latest state is used
+        setItems([...items.slice(0, -1), lastLine]);
       } else if (tool == 'rectangle') {
         const lastRect = JSON.parse(JSON.stringify(rect));
         lastRect.width = adjustedPoint.x - lastRect.x;
         lastRect.height = adjustedPoint.y - lastRect.y;
         lastRect.visible = true;
         setRect(lastRect);
+      } else if (tool == 'circle') {
+        const lastCircle = JSON.parse(JSON.stringify(circle));
+        lastCircle.radius = { x: Math.abs(adjustedPoint.x - lastCircle.x), y: Math.abs(adjustedPoint.y - lastCircle.y)};
+        lastCircle.visible = true;
+        setCircle(lastCircle);
       }
     };
 
@@ -134,12 +172,20 @@ const Whiteboard = () => {
         const newRect = JSON.parse(JSON.stringify(rect));
         newRect.id = historyPointer;
         var newItems = [...itemsHistory, newRect];
-        console.log(newItems);
         setItems(newItems);
         setItemsHistory(newItems);
         setHistoryPointer(historyPointer+1);
         //resetRect
         setRect(rectInitialState);
+      } else if (tool == 'circle') {
+        const newCircle = JSON.parse(JSON.stringify(circle));
+        newCircle.id = historyPointer;
+        var newItems = [...itemsHistory, newCircle];
+        setItems(newItems);
+        setItemsHistory(newItems);
+        setHistoryPointer(historyPointer+1);
+        //resetRect
+        setCircle(circleInitialState);
       }
     };
 
@@ -180,7 +226,7 @@ const Whiteboard = () => {
       stage.off('mouseup touchend', handleMouseUp);
       container.removeEventListener('keydown', handleKeyDown);
     };
-  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, itemsHistory]); // Dependency array includes lines and tool to ensure useEffect runs when they change
+  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, itemsHistory, circle]); // Dependency array includes lines and tool to ensure useEffect runs when they change
   
   const handleUndo = () => {
     if (historyPointer > 0) {
@@ -243,6 +289,7 @@ const Whiteboard = () => {
     switch (object.tool) {
       case 'pen':
       case 'eraser':
+      case 'line':
         return (
           <Line
             key={object.key}
@@ -293,9 +340,42 @@ const Whiteboard = () => {
             draggable={tool=="cursor"}
           />
         );
+        case 'circle':
+          return (
+            <ResizableCircle
+              key={object.id}
+              shapeProps={object}
+              isSelected={object.id === selectedId}
+              onSelect={() => {
+                selectShape(object.id);
+              }}
+              onChange={(newAttrs) => {
+                const newItems = items.slice();
+                newItems[object.id] = newAttrs;
+                setItems(newItems);
+                setItemsHistory(newItems);
+              }}
+              draggable={tool=="cursor"}
+            />
+          );
       default:
         return <></>
     }
+  }
+
+  const downloadURI = (uri, name) => {
+    var link = document.createElement('a');
+    link.download = name;
+    link.href = uri;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  const saveImage = () => {
+    const stage = stageRef.current.getStage();;
+    var dataURL = stage.toDataURL();
+    downloadURI(dataURL, 'stage.png');
   }
 
   return (
@@ -321,6 +401,7 @@ const Whiteboard = () => {
       })}
       <button onClick={handleUndo}>undo</button>
       <button onClick={handleRedo}>redo</button>
+      <button onClick={saveImage}>Save as image</button>
       <br />
       <span>items: { items.length } </span>
       <span>historyPointer: { historyPointer }</span>
@@ -395,9 +476,19 @@ const Whiteboard = () => {
             y={rect.y}
             width={rect.width}
             height={rect.height}
-            stroke={'black'}
-            strokeWidth={5}
+            stroke={rect.stroke}
+            strokeWidth={rect.strokeWidth}
             visible={rect.visible} 
+          />
+          <Ellipse 
+            x={circle.x}
+            y={circle.y}
+            radius={circle.radius}
+            width={100}
+            height={10}
+            stroke={circle.stroke}
+            strokeWidth={circle.strokeWidth}
+            visible={circle.visible}
           />
         </Layer>
       </Stage>

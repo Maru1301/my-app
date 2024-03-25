@@ -4,9 +4,10 @@ import  Rectangle  from './Rectangle.js';
 import URLImage from './Image.js';
 import Text from './Text.js';
 
-const ToolButton = ({ tool, value, onClick, activeColor = 'red', inactiveColor = 'black' }) => {
+const ToolButton = ({ key, tool, value, onClick, activeColor = 'red', inactiveColor = 'black' }) => {
   return (
     <button
+      //key={key}
       type="button"
       onClick={onClick}
       style={{
@@ -179,7 +180,7 @@ const Whiteboard = () => {
       stage.off('mouseup touchend', handleMouseUp);
       container.removeEventListener('keydown', handleKeyDown);
     };
-  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale]); // Dependency array includes lines and tool to ensure useEffect runs when they change
+  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, itemsHistory]); // Dependency array includes lines and tool to ensure useEffect runs when they change
   
   const handleUndo = () => {
     if (historyPointer > 0) {
@@ -305,6 +306,7 @@ const Whiteboard = () => {
       {tools.map((tooltext) => {
         return (
           <ToolButton
+            key={tooltext}
             tool={tool}
             value={tooltext}
             label={tooltext}
@@ -361,6 +363,7 @@ const Whiteboard = () => {
           {texts.map((text) => {
             return (
               <Text
+                key={text.id}
                 textProps={text}
                 isSelected={text.id === selectedTextIndex}
                 onSelect={() => {

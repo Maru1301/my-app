@@ -20,6 +20,7 @@ const URLImage = ({ imageProps, isSelected, onSelect, onChange, draggable }) => 
     return (
         <>
             <Image
+                alt={"image"}
                 key={imageProps.key}
                 image={img}
                 x={imageProps.x}

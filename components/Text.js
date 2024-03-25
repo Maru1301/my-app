@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, Transformer } from 'react-konva';
 
-const URLImage = ({ textProps, isSelected, onSelect, onChange, onDragStart, draggable, handleDoubleClick }) => {
+const URLImage = ({ key, textProps, isSelected, onSelect, onChange, onDragStart, draggable, handleDoubleClick }) => {
     const textRef = React.useRef();
     const trRef = React.useRef();
     const [width, setWidth] = React.useState();
@@ -18,6 +18,7 @@ const URLImage = ({ textProps, isSelected, onSelect, onChange, onDragStart, drag
     return (
         <>
             <Text
+                key={textProps.id}
                 text={textProps.content}
                 x={textProps.x}
                 y={textProps.y}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Rect, Transformer } from 'react-konva';
+import { Rect } from 'react-konva';
 
 const Rectangle = ({ shapeProps, draggable }) => {
     const shapeRef = React.useRef();
@@ -8,8 +8,6 @@ const Rectangle = ({ shapeProps, draggable }) => {
         <>
             <React.Fragment>
                 <Rect
-                //onClick={onSelect}
-                //onTap={onSelect}
                 ref={shapeRef}
                 width={shapeProps.width}
                 height={shapeProps.height}

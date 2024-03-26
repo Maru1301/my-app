@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Transformer } from 'react-konva';
+import { Image } from 'react-konva';
 import useImage from 'use-image';
 
 const URLImage = ({ imageProps, draggable }) => {
@@ -12,8 +12,6 @@ const URLImage = ({ imageProps, draggable }) => {
                 alt={"image"}
                 key={imageProps.key}
                 image={img}
-                //onClick={onSelect}
-                //onTap={onSelect}
                 ref={imageRef}
                 {...imageProps}
                 draggable={draggable}

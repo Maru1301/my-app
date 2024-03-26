@@ -17,8 +17,6 @@ const ResizableLine = ({ lineProps, draggable }) => {
                     }
                     strokeScaleEnabled={false}
                     draggable={draggable}
-                    //onClick={onSelect}
-                    //onTap={onSelect}
                     ref={lineRef}
                     scaleX={lineProps.scaleX ? 1 : lineProps.scaleX}
                     scaleY={lineProps.scaleY ? 1 : lineProps.scaleY}

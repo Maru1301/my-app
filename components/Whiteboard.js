@@ -9,7 +9,6 @@ import ResizableCircle from './Circle.js'
 const ToolButton = ({ tool, value, onClick, activeColor = 'red', inactiveColor = 'black' }) => {
   return (
     <button
-      //key={key}
       type="button"
       onClick={onClick}
       style={{
@@ -86,6 +85,9 @@ const Whiteboard = () => {
   const [selectionRectangle, setSelection] = useState(selectionRectangleInitialState);
   const [isSelecting, setIsSelecting] = useState(false);
 
+  const [clickStartTargetId, setClickStartTargetId] = useState('');
+  const [isTransforming, setIsTransforming] = useState(false);
+
   const checkDeselect = (e) => {
     // deselect when clicked on empty area
     const clickedOnEmpty = e.target === e.target.getStage();
@@ -120,9 +122,11 @@ const Whiteboard = () => {
           setSelectedIds(null);
           return;
         case 'cursor':
-          if(selectedIds.find((id) => id == e.target.id())) return;
-          //console.log(adjustedPoint.x, trRef.current.x() / scale, (trRef.current.x() + trRef.current.width()) / scale);
-          //if((adjustedPoint.x * scale) >= trRef.current.x() && (adjustedPoint.x * scale) <= (trRef.current.x() + trRef.current.width()) && (adjustedPoint.y * scale) >= trRef.current.y() && (adjustedPoint.y * scale) <= (trRef.current.y() + trRef.current.height())) return;
+          setClickStartTargetId(e.target.id());
+          if(selectedIds.find((id) => id == e.target.id()) || trRef.current.children.find((object) => object._id == e.target._id)) {
+            setIsTransforming(true);
+            return;
+          }
           checkDeselect(e);
           const newSelectionRect = JSON.parse(JSON.stringify(selectionRectangle));
           newSelectionRect.x = adjustedPoint.x;
@@ -229,10 +233,10 @@ const Whiteboard = () => {
         //reset
         setCircle(circleInitialState);
       } else if (tool == 'cursor') {
-        console.log(e.target)
-        const pos = stage.getPointerPosition();
-        const adjustedPoint = getAdjustedPoint(pos);
-        if((adjustedPoint.x * scale) >= trRef.current.x() && (adjustedPoint.x * scale) <= (trRef.current.x() + trRef.current.width()) && (adjustedPoint.y * scale) >= trRef.current.y() && (adjustedPoint.y * scale) <= (trRef.current.y() + trRef.current.height())) return;
+        if(isTransforming) {
+          setIsTransforming(false);
+          return;
+        }
         
         setSelection(selectionRectangleInitialState);
         setIsSelecting(false);
@@ -248,8 +252,19 @@ const Whiteboard = () => {
             return (tempRect.x >= box.x && tempRect.y >= box.y && (tempRect.x + tempRect.width) <= (box.x + box.width) && (tempRect.y + tempRect.height) <= (box.y + box.height))
           }
         );
+        if (selected.length == 0 && clickStartTargetId != '' && clickStartTargetId == e.target.id()) {
+          e.target.moveToTop();
+          trRef.current.nodes([e.target]);
+          trRef.current.moveToTop();
+          setSelectedIds([clickStartTargetId])
+          setClickStartTargetId('');
+          return;
+        }
+        selected.forEach((object) => object.moveToTop());
         trRef.current.nodes(selected)
-        setSelectedIds(selected.map((object) => {return object.id()}))
+        trRef.current.moveToTop();
+        setSelectedIds(selected.map((object) => {return object.id()}));
+        setClickStartTargetId('');
       }
     };
 
@@ -296,16 +311,20 @@ const Whiteboard = () => {
       stage.off('mouseup touchend', handleMouseUp);
       container.removeEventListener('keydown', handleKeyDown);
     };
-  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, circle, textId, selectedIds, isSelecting, selectionRectangle]); // Dependency array includes lines and tool to ensure useEffect runs when they change
+  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, circle, textId, selectedIds, isSelecting, selectionRectangle, clickStartTargetId, isTransforming, trRef]); // Dependency array includes lines and tool to ensure useEffect runs when they change
   
   const handleUndo = () => {
     if (historyPointer > 0) {
+      setSelectedIds([]);
+      trRef.current.nodes([]);
       setHistoryPointer(historyPointer-1);
     }
   };
 
   const handleRedo = () => {
     if(historyPointer < items.length){
+      setSelectedIds([]);
+      trRef.current.nodes([]);
       setHistoryPointer(historyPointer+1);
     }
   };
@@ -352,7 +371,6 @@ const Whiteboard = () => {
   };
 
   const render = (object) => {
-    //console.log(object.tool);
     switch (object.tool) {
       case 'pen':
       case 'eraser':
@@ -588,6 +606,7 @@ const Whiteboard = () => {
           <Transformer
             ref={trRef}
             flipEnabled={true}
+            shouldOverdrawWholeArea={true}
             boundBoxFunc={(oldBox, newBox) => {
             // limit resize
             if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {

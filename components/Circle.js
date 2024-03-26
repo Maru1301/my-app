@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ellipse, Transformer } from 'react-konva';
+import { Ellipse } from 'react-konva';
 
 const ResizableCircle = ({ shapeProps, draggable }) => {
     const shapeRef = React.useRef();
@@ -8,8 +8,6 @@ const ResizableCircle = ({ shapeProps, draggable }) => {
         <>
             <React.Fragment>
                 <Ellipse
-                    //onClick={onSelect}
-                    //onTap={onSelect}
                     ref={shapeRef}
                     {...shapeProps}
                     strokeScaleEnabled={false}

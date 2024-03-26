@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Line, Rect, Ellipse } from 'react-konva';
+import { Stage, Layer, Rect, Ellipse, Transformer } from 'react-konva';
 import ResizableLine from './Line.js';
 import Rectangle  from './Rectangle.js';
 import URLImage from './Image.js';
 import Text from './Text.js';
 import ResizableCircle from './Circle.js'
 
-const ToolButton = ({ key, tool, value, onClick, activeColor = 'red', inactiveColor = 'black' }) => {
+const ToolButton = ({ tool, value, onClick, activeColor = 'red', inactiveColor = 'black' }) => {
   return (
     <button
       //key={key}
@@ -47,11 +47,23 @@ const circleInitialState={
   visible: false,
 }
 
+const selectionRectangleInitialState={
+  id: 'rect',
+  tool: 'rectangle',
+  x: 0,
+  y: 0,
+  width: 0,
+  height: 0,
+  stroke: 'black',
+  strokeWidth: 0,
+  visible: false,
+  fill: 'rgba(0,0,255,0.5)',
+}
+
 const Whiteboard = () => {
   const stageRef = useRef(null);
   const [scale, setScale] = useState(1);
   const [items, setItems] = useState([]);
-  const [itemsHistory, setItemsHistory] = useState([]);
   const [historyPointer, setHistoryPointer] = useState(0);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
   const [width, setWidth] = useState(0);
@@ -61,7 +73,7 @@ const Whiteboard = () => {
   const dragUrl = useRef();
   const [image, setImage] = useState();
 
-  const [selectedId, selectShape] = React.useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [rect, setRect] = useState(rectInitialState);
   const [circle, setCircle] = useState(circleInitialState);
 
@@ -69,11 +81,16 @@ const Whiteboard = () => {
   const [textId, setTextId] = useState(0);
   const [selectedTextIndex, setSelectedTextIndex] = useState();
 
+  const trRef = useRef(null);
+  const selectionRectRef = useRef(null);
+  const [selectionRectangle, setSelection] = useState(selectionRectangleInitialState);
+  const [isSelecting, setIsSelecting] = useState(false);
+
   const checkDeselect = (e) => {
     // deselect when clicked on empty area
     const clickedOnEmpty = e.target === e.target.getStage();
     if (clickedOnEmpty) {
-      selectShape(null);
+      setSelectedIds([]);
       setSelectedTextIndex(null);
     }
   };
@@ -100,24 +117,37 @@ const Whiteboard = () => {
           setTexts([...texts, newText]);
           setSelectedTextIndex(textId);
           setTextId(textId+1);
-          selectShape(null);
+          setSelectedIds(null);
           return;
         case 'cursor':
+          if(selectedIds.find((id) => id == e.target.id())) return;
+          //console.log(adjustedPoint.x, trRef.current.x() / scale, (trRef.current.x() + trRef.current.width()) / scale);
+          //if((adjustedPoint.x * scale) >= trRef.current.x() && (adjustedPoint.x * scale) <= (trRef.current.x() + trRef.current.width()) && (adjustedPoint.y * scale) >= trRef.current.y() && (adjustedPoint.y * scale) <= (trRef.current.y() + trRef.current.height())) return;
           checkDeselect(e);
+          const newSelectionRect = JSON.parse(JSON.stringify(selectionRectangle));
+          newSelectionRect.x = adjustedPoint.x;
+          newSelectionRect.y = adjustedPoint.y;
+          newSelectionRect.visible = true;
+          setSelection(newSelectionRect);
+          setIsSelecting(true);
           return;
         case 'pen':
         case 'eraser':
           isDrawing.current = true;
-          var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], id: historyPointer }];
+          const newDraw = { tool, points: [adjustedPoint.x, adjustedPoint.y], id: historyPointer.toString(), stroke: 'black', strokeWidth: 5 };
+          var newItems = [...items.slice(0,historyPointer), newDraw];
           setItems(newItems);
-          setItemsHistory(newItems);
+          setSelectedIds([historyPointer]);
+          setStrokeWidth(newDraw.strokeWidth)
           setHistoryPointer(historyPointer+1);
           return;
         case 'line':
           isDrawing.current = true;
-          var newItems = [...itemsHistory, { tool, points: [adjustedPoint.x, adjustedPoint.y], id: historyPointer }];
+          const newLine = { tool, points: [adjustedPoint.x, adjustedPoint.y], id: historyPointer.toString(), strokeWidth: 5, stroke: 'black' };
+          var newItems = [...items.slice(0,historyPointer), newLine];
           setItems(newItems);
-          setItemsHistory(newItems);
+          setSelectedIds([historyPointer]);
+          setStrokeWidth(newLine.strokeWidth);
           setHistoryPointer(historyPointer+1);
           return;
         case 'rectangle':
@@ -140,7 +170,7 @@ const Whiteboard = () => {
     };
 
     const handleMouseMove = (e) => {
-      if (!isDrawing.current) {
+      if (!isDrawing.current && !isSelecting) {
         return;
       }
       const pos = stage.getPointerPosition();
@@ -166,29 +196,60 @@ const Whiteboard = () => {
         lastCircle.radius = { x: Math.abs(adjustedPoint.x - lastCircle.x), y: Math.abs(adjustedPoint.y - lastCircle.y)};
         lastCircle.visible = true;
         setCircle(lastCircle);
+      } else if (tool == 'cursor') {
+        const newSelectionRect = JSON.parse(JSON.stringify(selectionRectangle));
+        newSelectionRect.width = adjustedPoint.x - newSelectionRect.x;
+        newSelectionRect.height = adjustedPoint.y - newSelectionRect.y;
+        newSelectionRect.visible = true;
+        setSelection(newSelectionRect);
       }
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e) => {
       isDrawing.current = false;
+      
       if (tool == 'rectangle') {
         const newRect = JSON.parse(JSON.stringify(rect));
-        newRect.id = historyPointer;
-        var newItems = [...itemsHistory, newRect];
+        newRect.id = historyPointer.toString();
+        var newItems = [...items.slice(0,historyPointer), newRect];
         setItems(newItems);
-        setItemsHistory(newItems);
+        setStrokeWidth(newRect.strokeWidth);
+        setSelectedIds([historyPointer]);
         setHistoryPointer(historyPointer+1);
-        //resetRect
+        //reset
         setRect(rectInitialState);
       } else if (tool == 'circle') {
         const newCircle = JSON.parse(JSON.stringify(circle));
-        newCircle.id = historyPointer;
-        var newItems = [...itemsHistory, newCircle];
+        newCircle.id = historyPointer.toString();
+        var newItems = [...items.slice(0,historyPointer), newCircle];
         setItems(newItems);
-        setItemsHistory(newItems);
+        setStrokeWidth(newCircle.strokeWidth);
+        setSelectedIds([historyPointer]);
         setHistoryPointer(historyPointer+1);
-        //resetRect
+        //reset
         setCircle(circleInitialState);
+      } else if (tool == 'cursor') {
+        console.log(e.target)
+        const pos = stage.getPointerPosition();
+        const adjustedPoint = getAdjustedPoint(pos);
+        if((adjustedPoint.x * scale) >= trRef.current.x() && (adjustedPoint.x * scale) <= (trRef.current.x() + trRef.current.width()) && (adjustedPoint.y * scale) >= trRef.current.y() && (adjustedPoint.y * scale) <= (trRef.current.y() + trRef.current.height())) return;
+        
+        setSelection(selectionRectangleInitialState);
+        setIsSelecting(false);
+        e.evt.preventDefault();
+        var rects = stage.find('Rect').filter((shape) => {return shape.attrs.id != undefined});
+        var lines = stage.find('Line');
+        var images = stage.find('Image');
+        var circles = stage.find('Ellipse');
+        var shapes = [...rects, ...lines, ...images, ...circles];
+        var box = selectionRectRef.current.getClientRect();
+        var selected = shapes.filter((shape) =>{
+            const tempRect = shape.getClientRect();
+            return (tempRect.x >= box.x && tempRect.y >= box.y && (tempRect.x + tempRect.width) <= (box.x + box.width) && (tempRect.y + tempRect.height) <= (box.y + box.height))
+          }
+        );
+        trRef.current.nodes(selected)
+        setSelectedIds(selected.map((object) => {return object.id()}))
       }
     };
 
@@ -235,19 +296,17 @@ const Whiteboard = () => {
       stage.off('mouseup touchend', handleMouseUp);
       container.removeEventListener('keydown', handleKeyDown);
     };
-  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, itemsHistory, circle, textId]); // Dependency array includes lines and tool to ensure useEffect runs when they change
+  }, [tool, items, historyPointer, texts, selectedTextIndex, rect, scale, circle, textId, selectedIds, isSelecting, selectionRectangle]); // Dependency array includes lines and tool to ensure useEffect runs when they change
   
   const handleUndo = () => {
     if (historyPointer > 0) {
       setHistoryPointer(historyPointer-1);
-      setItemsHistory([...items.slice(0, historyPointer-1)])
     }
   };
 
   const handleRedo = () => {
     if(historyPointer < items.length){
       setHistoryPointer(historyPointer+1);
-      setItemsHistory([...items.slice(0, historyPointer+1)])
     }
   };
 
@@ -259,16 +318,15 @@ const Whiteboard = () => {
     const adjustedPoint = getAdjustedPoint(pos);
     // add image to items
     var newImage = {
-      id: historyPointer,
+      id: historyPointer.toString(),
       tool: 'image',
       key: historyPointer,
       type: 'image',
       ...adjustedPoint,
       src: dragUrl.current,
     };
-    var newItems = [...itemsHistory, newImage];
+    var newItems = [...items.slice(0,historyPointer), newImage];
     setItems(newItems);
-    setItemsHistory(newItems);
     setHistoryPointer(historyPointer+1);
   }
 
@@ -302,70 +360,28 @@ const Whiteboard = () => {
         return (
           <ResizableLine
             lineProps={object}
-            isSelected={tool=="cursor" && object.id === selectedId}
-            onSelect={() => {
-              selectShape(object.id);
-            }}
-            onChange={(newAttrs) => {
-              const newItems = items.slice();
-              newItems[object.id] = newAttrs;
-              setItems(newItems);
-              setItemsHistory(newItems);
-            }}
-            draggable={tool=='cursor'}
+            draggable={tool=="cursor" && selectedIds.find((id) => id == object.id)}
           />
         );
       case 'image':
         return (
           <URLImage 
             imageProps={object}
-            isSelected={tool=="cursor" && object.id === selectedId}
-            onSelect={() => {
-              selectShape(object.id);
-            }}
-            onChange={(newAttrs) => {
-              const newItems = items.slice();
-              newItems[object.id] = newAttrs;
-              setItems(newItems);
-              setItemsHistory(newItems);
-            }}
-            draggable={tool=="cursor"}
+            draggable={tool=="cursor" && selectedIds.find((id) => id == object.id)}
           />
         );
       case 'rectangle':
         return (
           <Rectangle
-            key={object.id}
             shapeProps={object}
-            isSelected={object.id === selectedId}
-            onSelect={() => {
-              selectShape(object.id);
-            }}
-            onChange={(newAttrs) => {
-              const newItems = items.slice();
-              newItems[object.id] = newAttrs;
-              setItems(newItems);
-              setItemsHistory(newItems);
-            }}
-            draggable={tool=="cursor"}
+            draggable={tool=="cursor" && selectedIds.find((id) => id == object.id)}
           />
         );
         case 'circle':
           return (
             <ResizableCircle
-              key={object.id}
               shapeProps={object}
-              isSelected={object.id === selectedId}
-              onSelect={() => {
-                selectShape(object.id);
-              }}
-              onChange={(newAttrs) => {
-                const newItems = items.slice();
-                newItems[object.id] = newAttrs;
-                setItems(newItems);
-                setItemsHistory(newItems);
-              }}
-              draggable={tool=="cursor"}
+              draggable={tool=="cursor" && selectedIds.find((id) => id == object.id)}
             />
           );
       default:
@@ -388,55 +404,113 @@ const Whiteboard = () => {
     downloadURI(dataURL, 'stage.png');
   }
 
+  const [strokeColor, setStrokeColor] = useState('');
+  const [strokeWidth, setStrokeWidth] = useState(1);
+
+  const changeStrokeColor = (e) => {
+    const value = e.target.getAttribute('value');
+    setStrokeColor(value);
+    const updateItems = items.slice();
+    var indexes = selectedIds.map((id) => items.findIndex((item) => item.id == id));
+    if (indexes.length == 0) return;
+    indexes.forEach((index) => {
+      updateItems[index].stroke = value;
+    })
+    setItems(updateItems);
+  }
+
+  const changeStrokeWidth = (e) => {
+    const value = e.target.value;
+    setStrokeWidth(value);
+    const updateItems = items.slice();
+    var indexes = selectedIds.map((id) => items.findIndex((item) => item.id == id));
+    if (indexes.length == 0) return;
+    indexes.forEach((index) => {
+      updateItems[index].strokeWidth = Number(value);
+    })
+    setItems(updateItems);
+  }
+
   return (
     <div 
       onDrop={addImage}
       onDragOver={(e) => e.preventDefault()}
     >
-      {tools.map((tooltext) => {
-        return (
-          <ToolButton
-            key={tooltext}
-            tool={tool}
-            value={tooltext}
-            label={tooltext}
-            onClick={() => {
-                selectShape(null);
-                setTool(tooltext)
-                setSelectedTextIndex(null);
-              }
+      <div style={{display: 'flex'}}>
+        <div style={{ width: '40vw', border: '1px solid black', marginRight: '2vw'}}>
+          {tools.map((tooltext) => {
+            return (
+              <ToolButton
+                key={tooltext}
+                tool={tool}
+                value={tooltext}
+                label={tooltext}
+                onClick={() => {
+                    setSelectedIds([]);
+                    setTool(tooltext)
+                    setSelectedTextIndex(null);
+                  }
+                }
+              ></ToolButton>
+            )
+          })}
+          <button onClick={handleUndo}>undo</button>
+          <button onClick={handleRedo}>redo</button>
+          <button onClick={saveImage}>Save as image</button>
+          <br />
+          <span>items: { items.length } </span>
+          <span>historyPointer: { historyPointer }</span>
+          <br />
+          <button onClick={() => {
+            if (Math.floor(scale*10) > 1){
+              setScale(scale-0.1)
             }
-          ></ToolButton>
-        )
-      })}
-      <button onClick={handleUndo}>undo</button>
-      <button onClick={handleRedo}>redo</button>
-      <button onClick={saveImage}>Save as image</button>
-      <br />
-      <span>items: { items.length } </span>
-      <span>historyPointer: { historyPointer }</span>
-      <br />
-      <button onClick={() => {
-        if (Math.floor(scale*10) > 1){
-          setScale(scale-0.1)
-        }
-      }}>-10%</button>
-      <span>{Math.floor(scale * 100)}%</span>
-      <button onClick={() => {
-        if (Math.floor(scale*10) < 20) {
-          setScale(scale+0.1)
-        }
-      }}>+10%</button>
-      <img
-        width={100}
-        height={100}
-        src={image}
-        draggable="true"
-        onDragStart={(e) => {
-          dragUrl.current = e.target.src;
-        }}
-      />
-      <input type="file" onChange={handleImageUpload} />
+          }}>-10%</button>
+          <span>{Math.floor(scale * 100)}%</span>
+          <button onClick={() => {
+            if (Math.floor(scale*10) < 20) {
+              setScale(scale+0.1)
+            }
+          }}>+10%</button>
+          <img
+            width={100}
+            height={100}
+            src={image}
+            draggable="true"
+            onDragStart={(e) => {
+              dragUrl.current = e.target.src;
+            }}
+          />
+          <input type="file" onChange={handleImageUpload} />
+        </div>
+        <div style={{ width: '40vw', border: '1px solid black', marginRight: '2vw'}}>
+            <span>stroke color: </span>
+            <button onClick={changeStrokeColor} value={'black'}>
+              <div style={{width: '1vw', height: '1vw', backgroundColor: 'black'}} value={'black'}></div>
+            </button>
+            <button onClick={changeStrokeColor} value={'red'}>
+              <div style={{width: '1vw', height: '1vw', backgroundColor: 'red'}} value={'red'}></div>
+            </button>
+            <button onClick={changeStrokeColor} value={'blue'}>
+              <div style={{width: '1vw', height: '1vw', backgroundColor: 'blue'}} value={'blue'}></div>
+            </button>
+            <button onClick={changeStrokeColor} value={'orange'}>
+              <div style={{width: '1vw', height: '1vw', backgroundColor: 'orange'}} value={'orange'}></div>
+            </button>
+            <button onClick={changeStrokeColor} value={'green'}>
+              <div style={{width: '1vw', height: '1vw', backgroundColor: 'green'}} value={'green'}></div>
+            </button>
+            <br />
+            <span>stroke width: </span>
+            <select onChange={changeStrokeWidth} value={strokeWidth}>
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+              <option value={5}>5</option>
+            </select>
+        </div>
+      </div>
       <Stage
         ref={stageRef}
         x={stagePos.x}
@@ -460,7 +534,7 @@ const Whiteboard = () => {
                 onSelect={() => {
                   if (tool != 'cursor') return;
                   setSelectedTextIndex(text.id);
-                  selectShape(null);
+                  setSelectedIds([]);
                 }}
                 onChange={(newAttrs) => {
                   const newTexts = texts.slice();
@@ -470,7 +544,7 @@ const Whiteboard = () => {
                 onDragStart={() => {
                     if (tool != 'cursor') return;
                     setSelectedTextIndex(text.id);
-                    selectShape(null);
+                    setSelectedIds([]);
                   }
                 }
                 draggable={tool=='cursor'}
@@ -499,6 +573,28 @@ const Whiteboard = () => {
             stroke={circle.stroke}
             strokeWidth={circle.strokeWidth}
             visible={circle.visible}
+          />
+          <Rect 
+            ref={selectionRectRef}
+            x={selectionRectangle.x}
+            y={selectionRectangle.y}
+            width={selectionRectangle.width}
+            height={selectionRectangle.height}
+            stroke={selectionRectangle.stroke}
+            strokeWidth={selectionRectangle.strokeWidth}
+            visible={selectionRectangle.visible} 
+            fill={selectionRectangle.fill}
+          />
+          <Transformer
+            ref={trRef}
+            flipEnabled={true}
+            boundBoxFunc={(oldBox, newBox) => {
+            // limit resize
+            if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
+                return oldBox;
+            }
+            return newBox;
+            }}
           />
         </Layer>
       </Stage>

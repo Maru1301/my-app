@@ -44,7 +44,9 @@ Add text to the whiteboard. \
 ### Cursor
 Interact with objects on the whiteboard. \
 Click an object to select, drag, or resize it.\
-![Cursor.gif](gif/Whiteboard_Cursor.gif)
+![Cursor.gif](gif/Whiteboard_Cursor.gif) \
+Multiple selection \
+![CursorMultiple.gif](gif/Whiteboard_CursorMultiple.gif)
 
 ### Hand
 Move the whiteboard around. \
@@ -53,6 +55,7 @@ Click and drag on the empty space to pan the whiteboard. \
 
 ### Undo/Redo
 Allows you to undo or redo recent actions on the whiteboard. \
+![UndoRedo.gif](gif/Whiteboard_UndoRedo.gif)
 
 ### Save as image
 Save the current whiteboard state as an image file. \
@@ -64,6 +67,15 @@ Zoom in or out on the whiteboard to adjust the view. \
 ### Upload image
 Load an existing image onto the whiteboard. \
 ![UploadImage.gif](gif/Whiteboard_UploadImage.gif)
+
+### Stroke Color
+Change the color of your drawing tools (pen, line, etc.) to customize your whiteboard. \
+Click on the color picker icon or select a color from the available options.\
+![StrokeColor.gif](gif/Whiteboard_StrokeColor.gif)
+
+### Stroke Width
+Adjust the thickness of your lines. \
+![StrokeWidth.gif](gif/Whiteboard_StrokeWidth.gif)
 
 
 <!-- ## Learn More

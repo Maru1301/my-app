@@ -21,33 +21,49 @@ bun dev
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## Features
-- Pen
-Use pen to draw whatever you want.
+### Pen
+Use pen to draw whatever you want. \
 ![Draw.gif](gif/Whiteboard_Draw.gif)
 
-- Line
-If you want to draw a straight, use line instead of pen.
+### Line
+Create straight lines. \
 ![Line.gif](gif/Whiteboard_Line.gif)
 
-- Rectangle
-Use Rectangle to draw a Rectangle
+### Rectangle
+Draw rectangles on the whiteboard. \
 ![Rectangle.gif](gif/Whiteboard_Rectangle.gif)
 
-- Circle
-Use Circle to draw whatever a Circle
+### Circle
+Draw circles on the whiteboard. \
 ![Circle.gif](gif/Whiteboard_Circle.gif)
 
-- Text
-Use Text to type the word you want
+### Text
+Add text to the whiteboard. \
 ![Type.gif](gif/Whiteboard_Type.gif)
 
-- Cursor
-Use pen to draw whatever you want
+### Cursor
+Interact with objects on the whiteboard. \
+Click an object to select, drag, or resize it.\
 ![Cursor.gif](gif/Whiteboard_Cursor.gif)
 
-- Hand
-Drag the white board to move
+### Hand
+Move the whiteboard around. \
+Click and drag on the empty space to pan the whiteboard. \
 ![Hand.gif](gif/Whiteboard_Hand.gif)
+
+### Undo/Redo
+Allows you to undo or redo recent actions on the whiteboard. \
+
+### Save as image
+Save the current whiteboard state as an image file. \
+
+### Scale
+Zoom in or out on the whiteboard to adjust the view. \
+![Scale.gif](gif/Whiteboard_Scale.gif)
+
+### Upload image
+Load an existing image onto the whiteboard. \
+![UploadImage.gif](gif/Whiteboard_UploadImage.gif)
 
 
 <!-- ## Learn More

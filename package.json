@@ -6,8 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "deploy": "next build && git add docs/ && git commit -m \"Deploy\" && git subtree push --prefix docs origin gh-pages"
+    "lint": "next lint"
   },
   "dependencies": {
     "canvas": "^2.11.2",

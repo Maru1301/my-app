@@ -2,7 +2,7 @@
 const nextConfig = {
     output: 'export',
     assetPrefix: 'https://maru1301.github.io/my-app/',
-    basePath: '',
+    basePath: '/my-app',
 };
 
 export default nextConfig;

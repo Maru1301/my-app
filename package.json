@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "next build && git commit -a -m 'Deploy' && git push"
+    "deploy": "next build && git add -A && git commit -m 'Deploy' && git push"
   },
   "dependencies": {
     "canvas": "^2.11.2",

@@ -2,7 +2,7 @@
 const nextConfig = {
     output: 'export',
     distDir: "docs",
-    assetPrefix: 'https://maru1301.github.io/my-app/',
+    assetPrefix: 'https://maru1301.github.io/my-app/docs/',
     basePath: '/my-app',
 };
 
